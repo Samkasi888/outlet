@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ef4444">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>江浙沪奥莱汇 - 特卖会聚合</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; background: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .sale-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sale-card:active { transform: scale(0.98); }
+        @keyframes heart-beat {
+            0% { transform: scale(1); } 25% { transform: scale(1.2); }
+            50% { transform: scale(0.95); } 100% { transform: scale(1); }
+        }
+        .subscribed { animation: heart-beat 0.4s ease; color: #ef4444; }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.33); opacity: 1; }
+            80%, 100% { transform: scale(2); opacity: 0; }
+        }
+        .map-marker::before {
+            content: ''; position: absolute; left: -8px; top: -8px;
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(239, 68, 68, 0.4);
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        .timeline-line {
+            background: linear-gradient(to bottom, #e5e7eb 0%, #ef4444 50%, #e5e7eb 100%);
+        }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .filter-expand {
+            max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;
+        }
+        .filter-expand.open { max-height: 200px; }
+        @keyframes slide-down {
+            0% { transform: translateY(-100%); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .update-toast { animation: slide-down 0.5s ease-out; }
+        .install-banner {
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="switchView('list')">
+                <div class="w-9 h-9 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-red-200">
+                    <i class="fas fa-shopping-bag text-sm"></i>
+                </div>
+                <div class="hidden sm:block">
+                    <h1 class="text-lg font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent leading-tight">江浙沪奥莱汇</h1>
+                    <p class="text-[10px] text-slate-400 -mt-0.5">特卖会聚合平台</p>
+                </div>
+            </div>
+            <div class="flex-1 max-w-md mx-4">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchInput" placeholder="搜索品牌、商场..." 
+                        class="w-full pl-10 pr-4 py-2 bg-slate-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-all">
+                </div>
+            </div>
+            <div class="hidden md:flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                <button onclick="switchView('list')" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium transition-all bg-white shadow-sm text-red-600" data-view="list">
+                    <i class="fas fa-list mr-1"></i>列表
+                </button>
+                <button onclick="switchView('timeline')" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium transition-all text-slate-600 hover:text-slate-900" data-view="timeline">
+                    <i class="fas fa-clock mr-1"></i>时间线
+                </button>
+                <button onclick="switchView('map')" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium transition-all text-slate-600 hover:text-slate-900" data-view="map">
+                    <i class="fas fa-map-marker-alt mr-1"></i>地图
+                </button>
+                <button onclick="switchView('brands')" class="view-btn px-3 py-1.5 rounded-md text-sm font-medium transition-all text-slate-600 hover:text-slate-900" data-view="brands">
+                    <i class="fas fa-heart mr-1"></i>品牌
+                </button>
+            </div>
+            <button onclick="toggleFilter()" class="md:hidden w-8 h-8 flex items-center justify-center text-slate-600">
+                <i class="fas fa-sliders-h"></i>
+            </button>
+        </div>
+        <div id="filterBar" class="filter-expand md:max-h-none md:overflow-visible bg-white border-b border-slate-100">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar">
+                <button onclick="filterRegion('all')" class="region-btn px-4 py-1.5 rounded-full text-sm whitespace-nowrap bg-red-50 text-red-600 border border-red-200 font-medium" data-region="all">全部</button>
+                <button onclick="filterRegion('shanghai')" class="region-btn px-4 py-1.5 rounded-full text-sm whitespace-nowrap bg-slate-50 text-slate-600 border border-slate-200" data-region="shanghai">上海</button>
+                <button onclick="filterRegion('jiangsu')" class="region-btn px-4 py-1.5 rounded-full text-sm whitespace-nowrap bg-slate-50 text-slate-600 border border-slate-200" data-region="jiangsu">江苏</button>
+                <button onclick="filterRegion('zhejiang')" class="region-btn px-4 py-1.5 rounded-full text-sm whitespace-nowrap bg-slate-50 text-slate-600 border border-slate-200" data-region="zhejiang">浙江</button>
+                <button onclick="filterStatus('ongoing')" class="ml-auto px-4 py-1.5 rounded-full text-sm whitespace-nowrap bg-orange-50 text-orange-600 border border-orange-200 font-medium" id="ongoingFilter">
+                    <i class="fas fa-fire mr-1"></i>进行中
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-6 min-h-screen">
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800" id="pageTitle">最新特卖会</h2>
+                <p class="text-sm text-slate-500 mt-1" id="resultCount">加载中...</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="showSubscribedOnly()" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                    <i class="fas fa-bookmark mr-1 text-red-500"></i>我的订阅
+                </button>
+                <button onclick="refreshData()" class="hidden md:flex px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50" title="刷新数据">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="listView" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <div id="timelineView" class="hidden max-w-3xl mx-auto">
+            <div class="relative pl-8" id="timelineContainer">
+                <div class="absolute left-3 top-0 bottom-0 w-0.5 timeline-line"></div>
+            </div>
+        </div>
+
+        <div id="mapView" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="relative h-[60vh] bg-slate-100 overflow-hidden" id="mapContainer">
+                <svg viewBox="0 0 800 600" class="w-full h-full" id="mapSvg">
+                    <path d="M 380 80 Q 430 130 480 180 T 580 280 T 530 430 T 380 480 T 230 430 T 180 280 T 280 180 T 380 80" 
+                          fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2"/>
+                    <text x="400" y="300" text-anchor="middle" class="text-2xl fill-slate-300 font-bold">长三角区域</text>
+                </svg>
+                <div id="mapTooltip" class="absolute hidden bg-white p-3 rounded-xl shadow-xl border border-slate-100 max-w-xs z-10 pointer-events-none">
+                    <h4 class="font-bold text-sm" id="tooltipTitle"></h4>
+                    <p class="text-xs text-slate-500 mt-1" id="tooltipInfo"></p>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100">
+                <p class="text-xs text-slate-500 text-center">点击标记查看详情，实际导航请使用高德/百度地图</p>
+            </div>
+        </div>
+
+        <div id="brandsView" class="hidden">
+            <div class="mb-4 flex items-center justify-between">
+                <p class="text-sm text-slate-600">点击心形图标订阅品牌，有特卖会时优先通知</p>
+                <button onclick="clearAllSubscriptions()" class="text-xs text-red-500 hover:text-red-700">清空订阅</button>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3" id="brandsGrid"></div>
+        </div>
+
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center">
+            <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-inbox text-3xl text-slate-300"></i>
+            </div>
+            <h3 class="text-lg font-medium text-slate-700">暂无特卖会信息</h3>
+            <p class="text-sm text-slate-500 mt-2">尝试切换筛选条件或订阅品牌获取通知</p>
+        </div>
+    </main>
+
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 safe-bottom z-50 pb-safe">
+        <div class="flex items-center justify-around h-16">
+            <button onclick="switchView('list')" class="nav-btn flex flex-col items-center gap-0.5 text-red-600 w-full" data-view="list">
+                <i class="fas fa-home text-lg"></i><span class="text-[10px]">首页</span>
+            </button>
+            <button onclick="switchView('brands')" class="nav-btn flex flex-col items-center gap-0.5 text-slate-400 w-full" data-view="brands">
+                <i class="fas fa-heart text-lg"></i><span class="text-[10px]">品牌</span>
+            </button>
+            <button onclick="switchView('map')" class="nav-btn flex flex-col items-center gap-0.5 text-slate-400 w-full" data-view="map">
+                <i class="fas fa-map text-lg"></i><span class="text-[10px]">地图</span>
+            </button>
+            <button onclick="switchView('subscribed')" class="nav-btn flex flex-col items-center gap-0.5 text-slate-400 w-full" data-view="subscribed">
+                <i class="fas fa-bookmark text-lg"></i><span class="text-[10px]">订阅</span>
+            </button>
+        </div>
+    </nav>
+
+    <div id="detailModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="absolute bottom-0 md:top-1/2 md:left-1/2 md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 w-full md:w-[500px] bg-white md:rounded-2xl rounded-t-2xl max-h-[85vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-slate-100 p-4 flex items-center justify-between z-10">
+                <h3 class="font-bold text-lg" id="modalTitle">特卖详情</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                    <i class="fas fa-times text-slate-600"></i>
+                </button>
+            </div>
+            <div class="p-4" id="modalContent"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-xl z-[70] hidden items-center gap-2 text-sm font-medium">
+        <i class="fas fa-check-circle text-green-400"></i><span id="toastMsg">操作成功</span>
+    </div>
+
+    <div id="installBanner" class="hidden fixed bottom-20 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 install-banner text-white p-4 rounded-2xl shadow-2xl z-50">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-plus text-lg"></i>
+            </div>
+            <div class="flex-1">
+                <h4 class="font-bold text-sm mb-1">添加到主屏幕</h4>
+                <p class="text-xs text-white/80 mb-3">像App一样快速访问，支持离线查看</p>
+                <div class="flex gap-2">
+                    <button onclick="dismissInstall()" class="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-medium hover:bg-white/30">下次再说</button>
+                    <button onclick="showInstallGuide()" class="px-3 py-1.5 bg-white text-red-600 rounded-lg text-xs font-bold hover:bg-gray-100">查看方法</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="installGuide" class="fixed inset-0 z-[80] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeInstallGuide()"></div>
+        <div class="absolute bottom-0 md:top-1/2 md:left-1/2 md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 w-full md:w-[400px] bg-white md:rounded-2xl rounded-t-2xl p-6">
+            <h3 class="font-bold text-lg mb-4">如何添加到主屏幕</h3>
+            <div class="space-y-4">
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">1</div>
+                    <div>
+                        <p class="font-medium text-sm text-slate-800">iPhone (Safari)</p>
+                        <p class="text-xs text-slate-500 mt-1">点击底部 <i class="fas fa-share mx-1"></i> 分享按钮 → 选择"添加到主屏幕"</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">2</div>
+                    <div>
+                        <p class="font-medium text-sm text-slate-800">安卓 (Chrome)</p>
+                        <p class="text-xs text-slate-500 mt-1">点击菜单 ⋮ → "添加到主屏幕" 或 "安装应用"</p>
+                    </div>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-red-100 text-red-600 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">3</div>
+                    <div>
+                        <p class="font-medium text-sm text-slate-800">电脑 (Chrome/Edge)</p>
+                        <p class="text-xs text-slate-500 mt-1">地址栏右侧点击 <i class="fas fa-download mx-1"></i> 安装图标</p>
+                    </div>
+                </div>
+            </div>
+            <button onclick="closeInstallGuide()" class="w-full mt-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-medium hover:bg-slate-200">知道了</button>
+        </div>
+    </div>
+
+    <script>
+        const outlets = [
+            { id: 'sh-qingpu', name: '青浦百联奥特莱斯', city: '上海', region: 'shanghai', district: '青浦区', address: '沪青平公路2888号', brands: ['Gucci','Burberry','Nike','Adidas','Lululemon','Coach','MK','Armani','Zegna'], lat: 31.15, lng: 121.12, sales: 400 },
+            { id: 'sh-bicester', name: '比斯特上海购物村', city: '上海', region: 'shanghai', district: '浦东新区', address: '申迪东路88号', brands: ['Gucci','Prada','Burberry','Armani','Lululemon','Loewe'], lat: 31.14, lng: 121.67, sales: 100 },
+            { id: 'sh-florentia', name: '上海佛罗伦萨小镇', city: '上海', region: 'shanghai', district: '浦东新区', address: '卓耀路58弄', brands: ['Prada','Gucci','Fendi','Celine','Nike','Adidas','Armani','Loewe','Balenciaga','YSL'], lat: 31.18, lng: 121.75, sales: 200 },
+            { id: 'sh-showay', name: '首位奥特莱斯', city: '上海', region: 'shanghai', district: '青浦区', address: '蟠中东路', brands: ['Adidas','Nike','Coach','MK'], lat: 31.18, lng: 121.28, sales: 50 },
+            { id: 'js-suzhou-bicester', name: '比斯特苏州购物村', city: '苏州', region: 'jiangsu', district: '工业园区', address: '阳澄环路969号', brands: ['Gucci','Prada','Burberry','Armani'], lat: 31.42, lng: 120.76, sales: 120 },
+            { id: 'js-wuxi', name: '无锡百联奥特莱斯', city: '无锡', region: 'jiangsu', district: '新吴区', address: '锡勤路18号', brands: ['Nike','Adidas','Coach','MK','Ferragamo'], lat: 31.55, lng: 120.42, sales: 80 },
+            { id: 'js-jiangyin', name: '海澜飞马水城奥特莱斯', city: '江阴', region: 'jiangsu', district: '新桥镇', address: '飞马水城', brands: ['Nike','Adidas','李宁','Eland'], lat: 31.85, lng: 120.38, sales: 60 },
+            { id: 'zj-xiasha', name: '杭州下沙奥特莱斯', city: '杭州/海宁', region: 'zhejiang', district: '海宁市', address: '文海北路1199号', brands: ['Gucci','Prada','Armani','Zegna','MaxMara','Coach','MK','Nike','Adidas','HOKA','Bally','Ferragamo','Tod\'s','Hugo Boss'], lat: 30.38, lng: 120.32, sales: 350 },
+            { id: 'zj-hangzhou-bl', name: '杭州百联奥特莱斯', city: '杭州', region: 'zhejiang', district: '临平区', address: '香岸路', brands: ['Gucci','Burberry','Nike','Adidas','Coach'], lat: 30.42, lng: 120.30, sales: 90 },
+            { id: 'zj-hangzhou-sc', name: '杭州砂之船奥特莱斯', city: '杭州', region: 'zhejiang', district: '上城区', address: '解放东路', brands: ['Coach','MK','Nike','Adidas','MaxMara'], lat: 30.25, lng: 120.20, sales: 70 },
+            { id: 'zj-hangzhou-cs', name: '杭州首创奥特莱斯', city: '杭州', region: 'zhejiang', district: '富阳区', address: '江滨东大道', brands: ['Nike','Adidas','Fila','Coach'], lat: 30.05, lng: 119.95, sales: 60 },
+            { id: 'zj-ningbo-shanjing', name: '宁波杉井奥特莱斯', city: '宁波', region: 'zhejiang', district: '鄞州区', address: '秋实路555号', brands: ['Gucci','Prada','Loewe','Hogan','Kate Spade','Coach','MK','Armani','Nike','Adidas'], lat: 29.83, lng: 121.48, sales: 180 }
+        ];
+
+        const salesData = [
+            { id: 1, outletId: 'sh-qingpu', brand: 'Nike', title: 'Nike 春日运动特卖', discount: '3折起，满2件7折', start: '2026-04-15', end: '2026-04-25', status: 'ongoing', tags: ['运动','满减'], hot: true, desc: '全场鞋服包3折起，满2件享7折优惠。热门款Air Force、Dunk系列参与。' },
+            { id: 2, outletId: 'sh-qingpu', brand: 'Gucci', title: 'Gucci 春季私享会', discount: '5折起', start: '2026-04-18', end: '2026-04-30', status: 'ongoing', tags: ['奢侈品','独家'], hot: true, desc: '精选包袋、服饰5折起，需预约入场。会员专享额外9.5折。' },
+            { id: 3, outletId: 'sh-qingpu', brand: 'Armani', title: 'Armani 春夏男装展卖', discount: '4折起', start: '2026-04-16', end: '2026-04-28', status: 'ongoing', tags: ['男装','展卖'], hot: false, desc: 'Emporio Armani 春夏男装4折起，经典西装、休闲裤装全场参与。' },
+            { id: 4, outletId: 'sh-bicester', brand: 'Lululemon', title: 'Lululemon 首次特卖', discount: '4折起', start: '2026-04-20', end: '2026-04-27', status: 'upcoming', tags: ['瑜伽','限量'], hot: false, desc: '瑜伽服、运动内衣4折起，尺码有限，先到先得。' },
+            { id: 5, outletId: 'sh-bicester', brand: 'Loewe', title: 'Loewe 手袋私享会', discount: '6折起', start: '2026-04-18', end: '2026-04-22', status: 'ongoing', tags: ['奢侈品','手袋'], hot: true, desc: 'Puzzle、Gate等经典手袋6折起，部分颜色限量发售。' },
+            { id: 6, outletId: 'sh-florentia', brand: 'Armani', title: 'Armani 意式优雅特卖周', discount: '3折起', start: '2026-04-17', end: '2026-04-27', status: 'ongoing', tags: ['奢侈品','意式'], hot: true, desc: 'Giorgio Armani 与 Emporio Armani 联合特卖，西装、外套、鞋履3折起。北区奢品长廊限时活动。' },
+            { id: 7, outletId: 'sh-florentia', brand: 'Prada', title: 'Prada 周末闪购', discount: '6折起', start: '2026-04-19', end: '2026-04-21', status: 'ongoing', tags: ['奢侈品','限时'], hot: true, desc: '仅限3天，经典包款、鞋履6折起。' },
+            { id: 8, outletId: 'sh-florentia', brand: 'Balenciaga', title: 'Balenciaga 潮流特卖', discount: '5折起', start: '2026-04-20', end: '2026-05-05', status: 'upcoming', tags: ['潮牌','老爹鞋'], hot: false, desc: 'Triple S、Hourglass包袋5折起，潮流服饰参与。' },
+            { id: 9, outletId: 'sh-florentia', brand: 'Kate Spade', title: 'Kate Spade 夏日色彩特卖', discount: '2折起', start: '2026-04-15', end: '2026-04-30', status: 'ongoing', tags: ['轻奢','女包'], hot: false, desc: '彩色包袋、配饰2折起，新品同步折扣。' },
+            { id: 10, outletId: 'sh-showay', brand: 'Nike', title: 'Nike 会员专享日', discount: '额外8折', start: '2026-04-25', end: '2026-04-27', status: 'upcoming', tags: ['会员','折上折'], hot: false, desc: '会员凭券享折上8折，可与店内活动叠加。' },
+            { id: 11, outletId: 'js-suzhou-bicester', brand: 'Burberry', title: 'Burberry 风衣节', discount: '7折起', start: '2026-04-10', end: '2026-04-28', status: 'ongoing', tags: ['经典','满减'], hot: false, desc: '经典格纹风衣、围巾7折起，满2万减1000。' },
+            { id: 12, outletId: 'js-suzhou-bicester', brand: 'Gucci', title: 'Gucci 春日限定特卖', discount: '5折起', start: '2026-04-18', end: '2026-04-26', status: 'ongoing', tags: ['奢侈品','限定'], hot: true, desc: '春季限定包款、服饰5折起，含部分老花系列。' },
+            { id: 13, outletId: 'js-wuxi', brand: 'Adidas', title: 'Adidas 超级周末', discount: '3件6折', start: '2026-04-18', end: '2026-04-20', status: 'ongoing', tags: ['运动','限时'], hot: false, desc: '全场鞋服满3件享6折，不满3件7折。' },
+            { id: 14, outletId: 'js-wuxi', brand: 'Ferragamo', title: 'Ferragamo 鞋履特展', discount: '4折起', start: '2026-04-22', end: '2026-05-10', status: 'upcoming', tags: ['鞋履','经典'], hot: false, desc: '男士皮鞋、女士平底鞋经典款4折起。' },
+            { id: 15, outletId: 'js-jiangyin', brand: 'Nike', title: 'Nike 工厂店清仓', discount: '99元起', start: '2026-04-15', end: '2026-04-30', status: 'ongoing', tags: ['运动','清仓'], hot: false, desc: '运动鞋99元起，服装满2件8折、3件7折。' },
+            { id: 16, outletId: 'zj-xiasha', brand: 'Nike', title: 'Nike 全城热练特卖', discount: '5折起', start: '2026-04-16', end: '2026-04-26', status: 'ongoing', tags: ['运动','热门'], hot: true, desc: 'AJ系列、Dunk系列5折起，满额赠奥莱券。下沙奥莱B区运动区。' },
+            { id: 17, outletId: 'zj-xiasha', brand: 'Adidas', title: 'Adidas 春日焕新季', discount: '4件5折', start: '2026-04-17', end: '2026-04-27', status: 'ongoing', tags: ['运动','团购'], hot: false, desc: '全场4件5折，可叠加抖音850团1000券。' },
+            { id: 18, outletId: 'zj-xiasha', brand: 'MaxMara', title: 'MaxMara 大衣反季特卖', discount: '3折起', start: '2026-04-18', end: '2026-05-05', status: 'ongoing', tags: ['女装','反季'], hot: true, desc: '经典101801大衣、泰迪熊大衣3折起，全年最低价。' },
+            { id: 19, outletId: 'zj-xiasha', brand: 'HOKA', title: 'HOKA 户外跑步节', discount: '7折起', start: '2026-04-20', end: '2026-04-30', status: 'upcoming', tags: ['户外','跑步'], hot: false, desc: 'Bondi、Clifton系列7折起，户外越野鞋参与。' },
+            { id: 20, outletId: 'zj-xiasha', brand: 'Zegna', title: 'Zegna 商务男装私享', discount: '5折起', start: '2026-04-22', end: '2026-05-15', status: 'upcoming', tags: ['男装','奢品'], hot: false, desc: '西装、衬衫、鞋履5折起，定制服务可预约。' },
+            { id: 21, outletId: 'zj-xiasha', brand: 'Coach', title: 'Coach 美式经典特卖', discount: '2折起', start: '2026-04-15', end: '2026-05-10', status: 'ongoing', tags: ['轻奢','新款'], hot: false, desc: '新款Tabby系列到货，经典款2折起。' },
+            { id: 22, outletId: 'zj-ningbo-shanjing', brand: 'Gucci', title: 'Gucci 奢品闪购会', discount: '4折起', start: '2026-04-18', end: '2026-04-24', status: 'ongoing', tags: ['奢侈品','闪购'], hot: true, desc: '手袋、皮具、鞋履4折起，每日限量补货。' },
+            { id: 23, outletId: 'zj-ningbo-shanjing', brand: 'Prada', title: 'Prada 经典重现特卖', discount: '5折起', start: '2026-04-16', end: '2026-04-28', status: 'ongoing', tags: ['奢侈品','经典'], hot: true, desc: '杀手包、乐福鞋等经典款5折起。' },
+            { id: 24, outletId: 'zj-ningbo-shanjing', brand: 'Loewe', title: 'Loewe 艺术匠心展卖', discount: '6折起', start: '2026-04-20', end: '2026-05-05', status: 'upcoming', tags: ['奢侈品','艺术'], hot: false, desc: 'Puzzle、Flamenco系列6折起，满额赠品牌礼品。' },
+            { id: 25, outletId: 'zj-ningbo-shanjing', brand: 'Kate Spade', title: 'Kate Spade 甜美夏日特卖', discount: '3折起', start: '2026-04-18', end: '2026-04-30', status: 'ongoing', tags: ['轻奢','女包'], hot: false, desc: '春夏新款包袋、配饰3折起，两件额外9折。' },
+            { id: 26, outletId: 'zj-ningbo-shanjing', brand: 'Nike', title: 'Nike 工厂店直销', discount: '69元起', start: '2026-04-15', end: '2026-05-01', status: 'ongoing', tags: ['运动','工厂店'], hot: false, desc: '基础款T恤69元起，鞋款199元起，满额享额外折扣。' },
+            { id: 27, outletId: 'zj-hangzhou-bl', brand: 'Adidas', title: 'Adidas 清仓特卖', discount: '99元起', start: '2026-04-15', end: '2026-05-05', status: 'ongoing', tags: ['运动','清仓'], hot: true, desc: '运动鞋99元起，服装3件6折。' },
+            { id: 28, outletId: 'zj-hangzhou-sc', brand: 'Fila', title: 'Fila 复古运动节', discount: '5折起', start: '2026-04-16', end: '2026-04-26', status: 'ongoing', tags: ['潮流','联名'], hot: false, desc: '复古老爹鞋、联名款5折起。' },
+            { id: 29, outletId: 'zj-hangzhou-cs', brand: 'Coach', title: 'Coach 五一提前购', discount: '2.5折起', start: '2026-04-20', end: '2026-05-10', status: 'upcoming', tags: ['节日','女包'], hot: false, desc: '五一特惠提前享，精选包款2.5折起。' },
+            { id: 30, outletId: 'zj-hangzhou-cs', brand: 'Nike', title: 'Nike 亲子运动季', discount: '5折起', start: '2026-04-18', end: '2026-04-28', status: 'ongoing', tags: ['亲子','运动'], hot: false, desc: '成人及儿童运动鞋服5折起，亲子搭配推荐。' }
+        ];
+
+        let currentView = 'list';
+        let currentRegion = 'all';
+        let showOngoingOnly = false;
+        let searchQuery = '';
+        let subscriptions = JSON.parse(localStorage.getItem('outlet_subscriptions') || '[]');
+        let lastVisit = localStorage.getItem('last_visit_date');
+
+        function init() {
+            renderList();
+            renderTimeline();
+            renderMap();
+            renderBrands();
+            updateStats();
+            checkNewContent();
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase();
+                refreshAllViews();
+            });
+            const now = new Date().toDateString();
+            if (lastVisit !== now) {
+                setTimeout(() => { document.getElementById('installBanner').classList.remove('hidden'); }, 2000);
+                localStorage.setItem('last_visit_date', now);
+            }
+        }
+
+        function getFilteredSales() {
+            return salesData.filter(sale => {
+                const outlet = outlets.find(o => o.id === sale.outletId);
+                if (!outlet) return false;
+                if (currentRegion !== 'all' && outlet.region !== currentRegion) return false;
+                if (showOngoingOnly && sale.status !== 'ongoing') return false;
+                if (searchQuery) {
+                    const match = sale.brand.toLowerCase().includes(searchQuery) || 
+                                 sale.title.includes(searchQuery) ||
+                                 outlet.name.includes(searchQuery) ||
+                                 outlet.city.includes(searchQuery);
+                    if (!match) return false;
+                }
+                return true;
+            });
+        }
+
+        function getSubscribedSales() {
+            return salesData.filter(sale => subscriptions.includes(sale.brand));
+        }
+
+        function checkNewContent() {
+            const today = new Date().toISOString().split('T')[0];
+            const newSales = salesData.filter(s => s.start === today || (lastVisit && new Date(s.start) > new Date(lastVisit)));
+            if (newSales.length > 0 && lastVisit) {
+                showToast('今日新增 ' + newSales.length + ' 场特卖会！');
+            }
+        }
+
+        function renderList() {
+            const container = document.getElementById('listView');
+            const sales = currentView === 'subscribed' ? getSubscribedSales() : getFilteredSales();
+            if (sales.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('emptyState').classList.remove('hidden');
+                document.getElementById('emptyState').classList.add('flex');
+                return;
+            }
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('flex');
+            container.innerHTML = sales.map(sale => {
+                const outlet = outlets.find(o => o.id === sale.outletId);
+                const isSub = subscriptions.includes(sale.brand);
+                const daysLeft = Math.ceil((new Date(sale.end) - new Date()) / (1000 * 60 * 60 * 24));
+                const isNew = !lastVisit || new Date(sale.start) > new Date(lastVisit);
+                return `
+                <div class="sale-card bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg cursor-pointer group" onclick="showDetail(${sale.id})">
+                    <div class="relative h-40 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                        <div class="text-center">
+                            <div class="text-3xl font-black text-slate-300 tracking-wider">${sale.brand}</div>
+                            <div class="text-sm text-slate-400 mt-1">品牌特卖</div>
+                        </div>
+                        ${sale.hot ? '<div class="absolute top-3 left-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold"><i class="fas fa-fire mr-1"></i>热门</div>' : ''}
+                        ${isNew ? '<div class="absolute top-3 left-3 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold"><i class="fas fa-sparkles mr-1"></i>新上架</div>' : ''}
+                        <div class="absolute top-3 right-3 ${sale.status === 'ongoing' ? 'bg-green-500' : 'bg-orange-500'} text-white text-xs px-2 py-1 rounded-full">
+                            ${sale.status === 'ongoing' ? '进行中' : '即将开始'}
+                        </div>
+                        ${daysLeft > 0 && daysLeft <= 3 ? `<div class="absolute bottom-3 right-3 bg-red-50 text-red-600 text-xs px-2 py-1 rounded-full border border-red-100 font-medium">剩${daysLeft}天</div>` : ''}
+                    </div>
+                    <div class="p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="font-bold text-slate-800 line-clamp-1">${sale.title}</h3>
+                            <button onclick="event.stopPropagation(); toggleSubscribe('${sale.brand}')" class="text-lg ${isSub ? 'subscribed' : 'text-slate-300 hover:text-red-400'} transition-colors">
+                                <i class="${isSub ? 'fas' : 'far'} fa-heart"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-2xl font-black text-red-600">${sale.discount}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs text-slate-500 mb-3">
+                            <span class="flex items-center gap-1"><i class="fas fa-map-marker-alt text-slate-400"></i>${outlet.city}·${outlet.name.replace('奥特莱斯','').replace('购物村','')}</span>
+                            <span class="flex items-center gap-1"><i class="fas fa-calendar-alt text-slate-400"></i>${sale.start.slice(5)}-${sale.end.slice(5)}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5">
+                            ${sale.tags.map(tag => `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-md">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timelineContainer');
+            const sales = [...getFilteredSales()].sort((a, b) => new Date(a.start) - new Date(b.start));
+            if (sales.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-400 py-10">暂无数据</div>';
+                return;
+            }
+            const grouped = {};
+            sales.forEach(sale => {
+                const month = sale.start.slice(0, 7);
+                if (!grouped[month]) grouped[month] = [];
+                grouped[month].push(sale);
+            });
+            container.innerHTML = Object.entries(grouped).map(([month, items]) => `
+                <div class="mb-8 relative">
+                    <div class="absolute -left-8 top-0 flex items-center justify-center w-6 h-6 bg-white border-2 border-red-500 rounded-full z-10">
+                        <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                    </div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-4">${month}月</h3>
+                    <div class="space-y-3">
+                        ${items.map(sale => {
+                            const outlet = outlets.find(o => o.id === sale.outletId);
+                            const isSub = subscriptions.includes(sale.brand);
+                            return `
+                            <div class="bg-white p-4 rounded-xl border border-slate-200 hover:shadow-md transition-shadow cursor-pointer" onclick="showDetail(${sale.id})">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="font-bold text-slate-800">${sale.brand}</span>
+                                            <span class="text-xs ${sale.status === 'ongoing' ? 'text-green-600 bg-green-50' : 'text-orange-600 bg-orange-50'} px-2 py-0.5 rounded-full">${sale.status === 'ongoing' ? '进行中' : '即将开始'}</span>
+                                        </div>
+                                        <h4 class="text-sm text-slate-600 mb-2">${sale.title}</h4>
+                                        <div class="flex items-center gap-3 text-xs text-slate-500">
+                                            <span class="text-red-600 font-bold">${sale.discount}</span>
+                                            <span>${outlet.name}</span>
+                                            <span>${sale.start} 至 ${sale.end}</span>
+                                        </div>
+                                    </div>
+                                    <button onclick="event.stopPropagation(); toggleSubscribe('${sale.brand}')" class="text-lg ${isSub ? 'text-red-500' : 'text-slate-300'} ml-2">
+                                        <i class="${isSub ? 'fas' : 'far'} fa-heart"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderMap() {
+            const svg = document.getElementById('mapSvg');
+            svg.querySelectorAll('.map-marker').forEach(el => el.remove());
+            outlets.forEach(outlet => {
+                const x = ((outlet.lng - 119.5) / 2.5) * 800;
+                const y = 600 - ((outlet.lat - 29.5) / 2.5) * 600;
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.classList.add('map-marker');
+                g.style.cursor = 'pointer';
+                g.innerHTML = `
+                    <circle cx="${x}" cy="${y}" r="8" fill="#ef4444" stroke="white" stroke-width="2"/>
+                    <text x="${x}" y="${y - 12}" text-anchor="middle" class="text-xs fill-slate-700 font-medium" style="font-size: 10px;">${outlet.name.replace('奥特莱斯','').replace('购物村','')}</text>
+                `;
+                g.addEventListener('click', () => { showMapTooltip(outlet, x, y); });
+                svg.appendChild(g);
+            });
+        }
+
+        function renderBrands() {
+            const allBrands = [...new Set(outlets.flatMap(o => o.brands))].sort();
+            const grid = document.getElementById('brandsGrid');
+            grid.innerHTML = allBrands.map(brand => {
+                const isSub = subscriptions.includes(brand);
+                const count = salesData.filter(s => s.brand === brand).length;
+                return `
+                <div class="bg-white rounded-xl border ${isSub ? 'border-red-200 bg-red-50' : 'border-slate-200'} p-4 flex flex-col items-center gap-2 cursor-pointer transition-all hover:shadow-md" onclick="toggleSubscribe('${brand}')">
+                    <div class="w-12 h-12 rounded-full ${isSub ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'} flex items-center justify-center text-lg font-bold mb-1">
+                        ${brand.charAt(0)}
+                    </div>
+                    <span class="font-medium text-sm ${isSub ? 'text-red-700' : 'text-slate-700'}">${brand}</span>
+                    <button class="text-lg ${isSub ? 'subscribed text-red-500' : 'text-slate-300'}">
+                        <i class="${isSub ? 'fas' : 'far'} fa-heart"></i>
+                    </button>
+                    ${count > 0 ? `<span class="text-[10px] text-slate-500">${count}场特卖</span>` : ''}
+                </div>
+                `;
+            }).join('');
+        }
+
+        function switchView(view) {
+            currentView = view;
+            ['listView', 'timelineView', 'mapView', 'brandsView'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.querySelectorAll('.view-btn, .nav-btn').forEach(btn => {
+                const isActive = btn.dataset.view === view;
+                if (btn.classList.contains('view-btn')) {
+                    btn.classList.toggle('bg-white', isActive);
+                    btn.classList.toggle('shadow-sm', isActive);
+                    btn.classList.toggle('text-red-600', isActive);
+                    btn.classList.toggle('text-slate-600', !isActive);
+                } else {
+                    btn.classList.toggle('text-red-600', isActive);
+                    btn.classList.toggle('text-slate-400', !isActive);
+                }
+            });
+            if (view === 'subscribed') {
+                document.getElementById('pageTitle').textContent = '我的订阅';
+                document.getElementById('listView').classList.remove('hidden');
+                renderList();
+            } else if (view === 'list' || view === 'timeline' || view === 'map' || view === 'brands') {
+                document.getElementById('pageTitle').textContent = view === 'list' ? '最新特卖会' : 
+                                                                   view === 'timeline' ? '特卖时间线' :
+                                                                   view === 'map' ? '奥莱地图' : '品牌订阅';
+                document.getElementById(view + 'View').classList.remove('hidden');
+                if (view === 'list') renderList();
+                if (view === 'timeline') renderTimeline();
+                if (view === 'brands') renderBrands();
+            }
+            updateStats();
+        }
+
+        function filterRegion(region) {
+            currentRegion = region;
+            document.querySelectorAll('.region-btn').forEach(btn => {
+                const isActive = btn.dataset.region === region;
+                btn.classList.toggle('bg-red-50', isActive);
+                btn.classList.toggle('text-red-600', isActive);
+                btn.classList.toggle('border-red-200', isActive);
+                btn.classList.toggle('font-medium', isActive);
+                btn.classList.toggle('bg-slate-50', !isActive);
+                btn.classList.toggle('text-slate-600', !isActive);
+                btn.classList.toggle('border-slate-200', !isActive);
+            });
+            refreshAllViews();
+        }
+
+        function filterStatus() {
+            showOngoingOnly = !showOngoingOnly;
+            const btn = document.getElementById('ongoingFilter');
+            btn.classList.toggle('bg-orange-50', showOngoingOnly);
+            btn.classList.toggle('text-orange-600', showOngoingOnly);
+            btn.classList.toggle('bg-slate-50', !showOngoingOnly);
+            btn.classList.toggle('text-slate-600', !showOngoingOnly);
+            refreshAllViews();
+        }
+
+        function toggleSubscribe(brand) {
+            const idx = subscriptions.indexOf(brand);
+            if (idx > -1) {
+                subscriptions.splice(idx, 1);
+                showToast('已取消订阅 ' + brand);
+            } else {
+                subscriptions.push(brand);
+                showToast('已订阅 ' + brand + ' 特卖信息');
+            }
+            localStorage.setItem('outlet_subscriptions', JSON.stringify(subscriptions));
+            refreshAllViews();
+        }
+
+        function clearAllSubscriptions() {
+            subscriptions = [];
+            localStorage.removeItem('outlet_subscriptions');
+            renderBrands();
+            showToast('已清空所有订阅');
+        }
+
+        function showSubscribedOnly() {
+            switchView('subscribed');
+        }
+
+        function refreshAllViews() {
+            if (currentView === 'list' || currentView === 'subscribed') renderList();
+            if (currentView === 'timeline') renderTimeline();
+            if (currentView === 'brands') renderBrands();
+            updateStats();
+        }
+
+        function updateStats() {
+            const count = currentView === 'subscribed' ? getSubscribedSales().length : getFilteredSales().length;
+            const subCount = subscriptions.length;
+            document.getElementById('resultCount').textContent = 
+                currentView === 'subscribed' ? '已订阅 ' + subCount + ' 个品牌，当前 ' + count + ' 场特卖' :
+                '共 ' + count + ' 场特卖会' + (subCount > 0 ? '，订阅了 ' + subCount + ' 个品牌' : '');
+        }
+
+        function refreshData() {
+            showToast('数据已刷新');
+            checkNewContent();
+            refreshAllViews();
+        }
+
+        function showDetail(saleId) {
+            const sale = salesData.find(s => s.id === saleId);
+            if (!sale) return;
+            const outlet = outlets.find(o => o.id === sale.outletId);
+            const isSub = subscriptions.includes(sale.brand);
+            document.getElementById('modalTitle').textContent = sale.title;
+            document.getElementById('modalContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                        <div>
+                            <div class="text-xs text-red-600 mb-1">折扣力度</div>
+                            <div class="text-2xl font-black text-red-600">${sale.discount}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs text-slate-500 mb-1">状态</div>
+                            <div class="inline-block px-3 py-1 rounded-full text-sm font-medium ${sale.status === 'ongoing' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
+                                ${sale.status === 'ongoing' ? '进行中' : '即将开始'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-slate-50 rounded-lg">
+                            <div class="text-xs text-slate-500 mb-1">商场</div>
+                            <div class="font-medium text-sm">${outlet.name}</div>
+                            <div class="text-xs text-slate-400 mt-0.5">${outlet.address}</div>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg">
+                            <div class="text-xs text-slate-500 mb-1">时间</div>
+                            <div class="font-medium text-sm">${sale.start} 至</div>
+                            <div class="font-medium text-sm">${sale.end}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-slate-700 mb-2">活动详情</div>
+                        <p class="text-sm text-slate-600 leading-relaxed">${sale.desc}</p>
+                    </div>
+                    <div>
+                        <div class="text-sm font-medium text-slate-700 mb-2">标签</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${sale.tags.map(tag => `<span class="px-3 py-1 bg-slate-100 text-slate-600 text-sm rounded-full">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="pt-4 space-y-2">
+                        <button onclick="toggleSubscribe('${sale.brand}'); closeModal()" class="w-full py-3 rounded-xl font-medium transition-all ${isSub ? 'bg-slate-100 text-slate-700' : 'bg-red-500 text-white hover:bg-red-600'}">
+                            ${isSub ? '<i class="fas fa-check mr-2"></i>已订阅' : '<i class="far fa-heart mr-2"></i>订阅该品牌特卖'}
+                        </button>
+                        <button onclick="closeModal()" class="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50">关闭</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function showMapTooltip(outlet, x, y) {
+            const tooltip = document.getElementById('mapTooltip');
+            const sales = salesData.filter(s => s.outletId === outlet.id);
+            document.getElementById('tooltipTitle').textContent = outlet.name;
+            document.getElementById('tooltipInfo').innerHTML = 
+                outlet.address + '<br>当前' + sales.length + '场特卖会<br>' + outlet.brands.slice(0,5).join('、') + '等';
+            tooltip.style.left = Math.min(x + 20, 600) + 'px';
+            tooltip.style.top = (y - 20) + 'px';
+            tooltip.classList.remove('hidden');
+            setTimeout(() => tooltip.classList.add('hidden'), 3000);
+        }
+
+        function toggleFilter() {
+            document.getElementById('filterBar').classList.toggle('open');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 2000);
+        }
+
+        function dismissInstall() {
+            document.getElementById('installBanner').classList.add('hidden');
+            localStorage.setItem('install_dismissed', Date.now().toString());
+        }
+
+        function showInstallGuide() {
+            document.getElementById('installGuide').classList.remove('hidden');
+            document.getElementById('installBanner').classList.add('hidden');
+        }
+
+        function closeInstallGuide() {
+            document.getElementById('installGuide').classList.add('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
